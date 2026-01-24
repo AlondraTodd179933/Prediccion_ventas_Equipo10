@@ -19,9 +19,19 @@ Se utilizaron datos históricos de ventas diarias con indicadores para las tiend
 | `shops.csv` | Información de tiendas |
 | `item_categories.csv` | Categorías de productos |
 
+Transformación: Agregación a nivel tienda–ítem–mes.
+
 ### Métrica de evaluación
 
 **Root Mean Squared Error (RMSE)**
+
+### Métricas complementarias:
+
+- MAE
+- Sesgo (predicción − valor real)
+- Porcentaje de predicciones dentro de ±5 unidades
+
+No se utilizó MAPE como métrica principal debido a la alta proporción de observaciones con ventas iguales a cero.
 
 ---
 
@@ -41,6 +51,7 @@ El modelo final seleccionado fue un Random Forest entrenado con lags temporales 
 
 ## Evaluación final 
 l desempeño del modelo se evaluó mediante la métrica RMSE, obteniendo un valor de 0.7049 en el conjunto de validación y un score de 1.02 privado en kaggle (1.03 score público).
+Además de que más del 99% de las predicciones se encuentran dentro de un rango operativo de ±5 unidades.
 
 ## Contenido requerido
 - `Tarea1_FINAL.ipynb`: Notebook principal con todo el análisis y modelado.
