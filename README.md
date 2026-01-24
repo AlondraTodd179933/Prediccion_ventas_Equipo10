@@ -46,3 +46,4 @@ l desempeño del modelo se evaluó mediante la métrica RMSE, obteniendo un valo
 - `Tarea1_FINAL.ipynb`: Notebook principal con todo el análisis y modelado.
 - `Resumen ejecutivo.pdf`: Resumen ejecutivo con los puntos claves del proyecto.
 - `README.md`: Descripción general del proyecto.
+- `Tarea1 (instrucciones).md`: Instrucciones y contexto de la tarea.
