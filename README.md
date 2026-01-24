@@ -27,11 +27,12 @@ Se utilizaron datos históricos de ventas diarias con indicadores para las tiend
 
 ## Metodología
 1. Limpieza y preparación de los datos.
-2. Construcción de una base completa de combinaciones tienda–producto–mes.
+2. Construcción de una base completa de combinaciones tienda–ítem–mes.
 3. Generación de variables rezagadas (lags) de 1, 3, 6 y 12 meses.
 4. División temporal de los datos en entrenamiento y validación.
 5. Entrenamiento de distintos modelos (baseline, Ridge y Random Forest).
 6. Selección del modelo con mejor desempeño.
+7. Visualizaciones clave
 
 Nota: Solamente se creó un notebook pero se incluyeron secciones y comentarios para poder seguir el flujo 
 
