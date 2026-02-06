@@ -1,0 +1,8 @@
+2026-02-06 03:43:21,021 - train - INFO - Logger configurado correctamente. Log file: artifacts\logs\train_20260206_034321.log
+2026-02-06 03:43:21,026 - train - INFO - No se pasó --data. Usando: artifacts/data/monthly_clean.csv
+2026-02-06 03:43:23,298 - train - INFO - Datos cargados: 1608226 filas, 5 cols
+2026-02-06 03:43:25,963 - train - INFO - Datos después de lags (dropna): 710527 filas
+2026-02-06 03:43:26,065 - train - INFO - Train: 693022 | Val: 17505 | last_block=33
+2026-02-06 03:43:26,404 - train - INFO - RMSE validación (último mes): 15.838400
+2026-02-06 03:43:26,426 - train - INFO - Modelo guardado en: artifacts/models/ridge_20260206_034326.joblib
+2026-02-06 03:43:26,438 - train - INFO - Métricas guardadas en: artifacts/metrics/train_metrics_20260206_034326.json

@@ -1,4 +1,3 @@
-
 """
 Configuración centralizada de logging para el proyecto.
 

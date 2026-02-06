@@ -1,176 +1,166 @@
-######### -*- coding: utf-8 -*-
 """
-Entrenamiento del modelo (baseline) para predicción de ventas.
+Training script.
 
-- Lee el dataset mensual preparado por prep.py
-- Crea features (lags por shop-item)
-- Entrena un modelo Ridge (rápido y estable)
-- Guarda modelo + métricas
+Reads the monthly dataset produced by prep.py, builds lag features,
+trains a regression model, logs metrics, and saves artifacts.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Tuple
 
+import joblib
 import pandas as pd
-from joblib import dump
 from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_squared_error
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-
-from .utils.logging_config import setup_logger
 from sklearn.metrics import root_mean_squared_error
 
+from .utils.logging_config import setup_logger
+
+DEFAULT_DATA_PATH = Path("artifacts/data/monthly_clean.csv")
+DEFAULT_OUT_DIR = Path("artifacts")
 
 
-def _find_prepared_file(default_dir: Path) -> Path:
+@dataclass(frozen=True)
+class SplitConfig:
+    """Configuration for time-based train/validation split."""
+
+    val_last_block: int
+
+
+def resolve_paths(data_path: str | None, out_dir: str) -> Tuple[Path, Path]:
+    """Resolve input/output paths with safe defaults."""
+    data_file = Path(data_path) if data_path else DEFAULT_DATA_PATH
+    out_root = Path(out_dir) if out_dir else DEFAULT_OUT_DIR
+    return data_file, out_root
+
+
+def load_data(data_file: Path) -> pd.DataFrame:
+    """Load training dataset from disk."""
+    if not data_file.exists():
+        raise FileNotFoundError(f"No encontré el dataset en: {data_file.as_posix()}")
+    return pd.read_csv(data_file)
+
+
+def make_lag_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Busca un .csv dentro de artifacts/data por si el nombre exacto cambia.
-    Prioriza archivos que contengan 'monthly' o 'prepared'.
+    Create lag features used for training.
+
+    Expected base column: item_cnt_month
     """
-    if not default_dir.exists():
-        raise FileNotFoundError(f"No existe la carpeta: {default_dir.as_posix()}")
+    if "item_cnt_month" not in df.columns:
+        return df
 
-    candidates = list(default_dir.glob("*.csv"))
-    if not candidates:
-        raise FileNotFoundError(
-            f"No encontré ningún .csv en {default_dir.as_posix()} (ejecuta prep.py primero)."
-        )
+    ordered = df.sort_values(["shop_id", "item_id", "date_block_num"]).copy()
+    grouped = ordered.groupby(["shop_id", "item_id"])["item_cnt_month"]
 
-    # Prioridad por nombre
-    preferred = [p for p in candidates if ("monthly" in p.name.lower() or "prepared" in p.name.lower())]
-    return preferred[0] if preferred else candidates[0]
+    ordered["lag_1"] = grouped.shift(1)
+    ordered["lag_2"] = grouped.shift(2)
+    ordered["lag_3"] = grouped.shift(3)
+    ordered["lag_mean_1_2"] = ordered[["lag_1", "lag_2"]].mean(axis=1)
+
+    return ordered.dropna().reset_index(drop=True)
 
 
-def make_lag_features(df: pd.DataFrame, lags=(1, 2, 3)) -> pd.DataFrame:
+def split_time_last_block(
+    df: pd.DataFrame, cfg: SplitConfig
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Split train/validation by date_block_num using last block as validation."""
+    df_train = df[df["date_block_num"] < cfg.val_last_block].copy()
+    df_val = df[df["date_block_num"] == cfg.val_last_block].copy()
+    return df_train, df_val
+
+
+def build_xy(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
+    """Build features matrix X and target y."""
+    y_target = df["item_cnt_month"]
+    x_features = df.drop(columns=["item_cnt_month"], errors="ignore")
+    return x_features, y_target
+
+
+def save_json(payload: dict, out_file: Path) -> None:
+    """Save dictionary as JSON."""
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    out_file.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def train_and_score(df: pd.DataFrame, logger) -> Tuple[Ridge, float, int]:
     """
-    Asume que df tiene al menos:
-      - shop_id, item_id, date_block_num
-      - item_cnt_month (target)
+    Train model and compute RMSE using last month as validation.
+
+    Returns:
+      model, rmse, last_block
     """
-    df = df.copy()
-    df = df.sort_values(["shop_id", "item_id", "date_block_num"])
+    df_lags = make_lag_features(df)
+    logger.info("Datos después de lags (dropna): %s filas", f"{len(df_lags):,}")
 
-    for l in lags:
-        df[f"lag_{l}"] = (
-            df.groupby(["shop_id", "item_id"])["item_cnt_month"].shift(l)
-        )
+    last_block = int(df_lags["date_block_num"].max())
+    cfg = SplitConfig(val_last_block=last_block)
 
-    # Rolling mean simple (sobre lag_1 y lag_2 si existen)
-    if "lag_1" in df.columns and "lag_2" in df.columns:
-        df["lag_mean_1_2"] = df[["lag_1", "lag_2"]].mean(axis=1)
+    df_train, df_val = split_time_last_block(df_lags, cfg)
+    logger.info(
+        "Train: %s | Val: %s | last_block=%s",
+        f"{len(df_train):,}",
+        f"{len(df_val):,}",
+        last_block,
+    )
 
-    return df
+    x_train, y_train = build_xy(df_train)
+    x_val, y_val = build_xy(df_val)
+
+    model = Ridge(alpha=1.0, random_state=42)
+    model.fit(x_train, y_train)
+
+    preds_val = model.predict(x_val)
+    rmse = float(root_mean_squared_error(y_val, preds_val))
+    return model, rmse, last_block
 
 
 def main(data_path: str | None, out_dir: str) -> None:
+    """Run the full training pipeline."""
+    start_time = time.time()
     logger = setup_logger("train")
 
-    base_dir = Path(out_dir)
-    models_dir = base_dir / "models"
-    metrics_dir = base_dir / "metrics"
-    models_dir.mkdir(parents=True, exist_ok=True)
-    metrics_dir.mkdir(parents=True, exist_ok=True)
+    data_file, out_root = resolve_paths(data_path, out_dir)
 
-    ########## 1) Cargar datos preparados 
-    if data_path is None:
-        prepared = _find_prepared_file(Path("artifacts") / "data")
-        logger.info("No se pasó --data. Usando: %s", prepared.as_posix())
-        data_path = str(prepared)
+    if not data_path:
+        logger.info("No se pasó --data. Usando: %s", data_file.as_posix())
 
-    data_path = Path(data_path)
-    if not data_path.exists():
-        raise FileNotFoundError(f"No existe el archivo: {data_path.as_posix()}")
+    df = load_data(data_file)
+    logger.info("Datos cargados: %s filas, %s columnas", f"{len(df):,}", df.shape[1])
 
-    df = pd.read_csv(data_path)
-    logger.info("Datos cargados: %s filas, %s cols", df.shape[0], df.shape[1])
-
-    required = {"shop_id", "item_id", "date_block_num", "item_cnt_month"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Faltan columnas requeridas en el dataset preparado: {sorted(missing)}")
-
-    ########## 2) Features 
-    df_feat = make_lag_features(df, lags=(1, 2, 3))
-
-    # Quitamos filas con NaN por lags (primeros meses de cada shop-item)
-    df_feat = df_feat.dropna().reset_index(drop=True)
-    logger.info("Datos después de lags (dropna): %s filas", df_feat.shape[0])
-
-    feature_cols = [c for c in df_feat.columns if c.startswith("lag_")] + (["lag_mean_1_2"] if "lag_mean_1_2" in df_feat.columns else [])
-    X = df_feat[feature_cols]
-    y = df_feat["item_cnt_month"]
-
-    ########## 3) Train/Val por tiempo
-    # Validación sencilla: último date_block_num como validation
-    last_block = df_feat["date_block_num"].max()
-    train_mask = df_feat["date_block_num"] < last_block
-    val_mask = df_feat["date_block_num"] == last_block
-
-    X_train, y_train = X[train_mask], y[train_mask]
-    X_val, y_val = X[val_mask], y[val_mask]
-
-    logger.info("Train: %s | Val: %s | last_block=%s", X_train.shape[0], X_val.shape[0], last_block)
-
-    ########## 4) Modelo 
-    model = Pipeline(
-        steps=[
-            ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            ("ridge", Ridge(alpha=1.0, random_state=42)),
-        ]
-    )
-
-    model.fit(X_train, y_train)
-    pred_val = model.predict(X_val)
-
-
-    rmse = root_mean_squared_error(y_val, pred_val)
-
+    model, rmse, last_block = train_and_score(df, logger)
     logger.info("RMSE validación (último mes): %.6f", rmse)
 
-    ########## 5) Guardar artefactos 
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_path = models_dir / f"ridge_{stamp}.joblib"
-    dump(
-        {
-            "model": model,
-            "feature_cols": feature_cols,
-            "last_block": int(last_block),
-        },
-        model_path,
-    )
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_path = out_root / "models" / f"ridge_{timestamp}.joblib"
+    metrics_path = out_root / "metrics" / f"train_metrics_{timestamp}.json"
+
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, model_path)
     logger.info("Modelo guardado en: %s", model_path.as_posix())
 
-    metrics = {
-        "rmse_val_last_block": float(rmse),
-        "n_train": int(X_train.shape[0]),
-        "n_val": int(X_val.shape[0]),
-        "last_block": int(last_block),
-        "features": feature_cols,
-        "data_used": data_path.as_posix(),
-    }
-    metrics_path = metrics_dir / f"train_metrics_{stamp}.json"
-    metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    save_json({"rmse_val_last_block": rmse, "val_last_block": last_block}, metrics_path)
     logger.info("Métricas guardadas en: %s", metrics_path.as_posix())
+
+    duration = time.time() - start_time
+    logger.info("Tiempo de ejecución: %.2f segundos", duration)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--data", default=None, help="Ruta a monthly_clean.csv")
     parser.add_argument(
-        "--data",
-        type=str,
-        default=None,
-        help="Ruta del CSV preparado por prep.py (si no se pasa, busca en artifacts/data).",
-    )
-    parser.add_argument(
-        "--out-dir",
-        type=str,
-        default="artifacts",
-        help="Carpeta donde se guardan modelos/métricas/logs.",
+        "--out_dir", default=str(DEFAULT_OUT_DIR), help="Carpeta raíz de artifacts"
     )
     args = parser.parse_args()
+
     main(args.data, args.out_dir)

@@ -1,0 +1,14 @@
+{
+  "rmse_val_last_block": 15.838399546312921,
+  "n_train": 693022,
+  "n_val": 17505,
+  "last_block": 33,
+  "features": [
+    "lag_1",
+    "lag_2",
+    "lag_3",
+    "lag_mean_1_2",
+    "lag_mean_1_2"
+  ],
+  "data_used": "artifacts/data/monthly_clean.csv"
+}
