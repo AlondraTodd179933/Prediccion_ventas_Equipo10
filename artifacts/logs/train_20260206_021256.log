@@ -1,0 +1,5 @@
+2026-02-06 02:12:56,737 - train - INFO - Logger configurado correctamente. Log file: artifacts\logs\train_20260206_021256.log
+2026-02-06 02:12:56,745 - train - INFO - No se pasó --data. Usando: artifacts/data/monthly_clean.csv
+2026-02-06 02:12:58,293 - train - INFO - Datos cargados: 1608226 filas, 5 cols
+2026-02-06 02:13:00,577 - train - INFO - Datos después de lags (dropna): 710527 filas
+2026-02-06 02:13:00,666 - train - INFO - Train: 693022 | Val: 17505 | last_block=33

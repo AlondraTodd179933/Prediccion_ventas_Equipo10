@@ -1,0 +1,7 @@
+2026-02-06 02:05:39,003 - prep - INFO - Logger configurado correctamente. Log file: artifacts\logs\prep_20260206_020539.log
+2026-02-06 02:05:39,003 - prep - INFO - Iniciando preparación de datos
+2026-02-06 02:05:39,003 - prep - INFO - Cargando datasets originales
+2026-02-06 02:05:40,560 - prep - INFO - Ventas cargadas: 2935849 filas
+2026-02-06 02:05:40,700 - prep - INFO - Ventas después de limpieza: 2928492 filas
+2026-02-06 02:05:41,735 - prep - INFO - Datos agregados a nivel mensual
+2026-02-06 02:05:46,884 - prep - INFO - Preparación finalizada en 7.88 segundos

@@ -1,0 +1,3 @@
+2026-02-06 02:43:55,887 - inference - INFO - Logger configurado correctamente. Log file: artifacts\logs\inference_20260206_024355.log
+2026-02-06 02:43:55,894 - inference - INFO - Usando data: C:\Users\aloto\Prediccion_ventas_Equipo10\artifacts\data\monthly_clean.csv
+2026-02-06 02:43:55,894 - inference - INFO - Usando modelo: C:\Users\aloto\Prediccion_ventas_Equipo10\artifacts\models\ridge_20260206_021742.joblib

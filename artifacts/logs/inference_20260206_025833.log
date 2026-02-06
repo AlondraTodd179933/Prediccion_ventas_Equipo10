@@ -1,0 +1,5 @@
+2026-02-06 02:58:33,644 - inference - INFO - Logger configurado correctamente. Log file: artifacts\logs\inference_20260206_025833.log
+2026-02-06 02:58:33,653 - inference - INFO - Usando data: C:\Users\aloto\Prediccion_ventas_Equipo10\artifacts\data\monthly_clean.csv
+2026-02-06 02:58:33,653 - inference - INFO - Usando modelo: C:\Users\aloto\Prediccion_ventas_Equipo10\artifacts\models\ridge_20260206_021742.joblib
+2026-02-06 02:58:37,636 - inference - INFO - No encontré features lag en el dataset. Las voy a construir...
+2026-02-06 02:58:46,720 - inference - INFO - Predicciones guardadas en: artifacts/predictions/predictions.csv
