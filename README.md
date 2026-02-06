@@ -18,7 +18,7 @@ Este repositorio fue desarrollado con fines académicos como parte de una práct
 ---
 
 ## Estructura del Repositorio
-
+```text
 Prediccion_ventas_Equipo10/
 │
 ├── src/
@@ -45,7 +45,7 @@ Prediccion_ventas_Equipo10/
 │
 ├── README.md
 └── requirements.txt
-
+```
 
 ## Datos
 Se utilizaron datos históricos de ventas diarias con indicadores para las tiendas y artículos obtenidos de  [Kaggle - Predict Future Sales Competition](https://kaggle.com/competitions/competitive-data-science-predict-future-sales) 
