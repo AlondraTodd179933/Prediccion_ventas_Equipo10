@@ -1,166 +1,137 @@
 """
 Training script.
 
-Reads the monthly dataset produced by prep.py, builds lag features,
-trains a regression model, logs metrics, and saves artifacts.
+This script:
+- Loads the prepared monthly dataset
+- Builds lag features if needed
+- Splits train/validation
+- Trains a RandomForestRegressor
+- Saves the trained model bundle to joblib
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import time
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Tuple
 
 import joblib
 import pandas as pd
-from sklearn.linear_model import Ridge
-from sklearn.metrics import root_mean_squared_error
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 
+from algorithms.utils.features import make_lag_features
 from algorithms.utils.logging_config import setup_logger
 
 DEFAULT_DATA_PATH = Path("artifacts/data/monthly_clean.csv")
-DEFAULT_OUT_DIR = Path("artifacts")
+DEFAULT_MODEL_DIR = Path("artifacts/models")
+MODEL_FILENAME = "model.joblib"
 
 
-@dataclass(frozen=True)
-class SplitConfig:
-    """Configuration for time-based train/validation split."""
-
-    val_last_block: int
-
-
-def resolve_paths(data_path: str | None, out_dir: str) -> Tuple[Path, Path]:
-    """Resolve input/output paths with safe defaults."""
-    data_file = Path(data_path) if data_path else DEFAULT_DATA_PATH
-    out_root = Path(out_dir) if out_dir else DEFAULT_OUT_DIR
-    return data_file, out_root
+def _build_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop target/leakage columns and keep model features."""
+    drop_cols = ["item_cnt_month", "y", "target", "label"]
+    return df.drop(columns=drop_cols, errors="ignore")
 
 
-def load_data(data_file: Path) -> pd.DataFrame:
-    """Load training dataset from disk."""
-    if not data_file.exists():
-        raise FileNotFoundError(f"No encontré el dataset en: {data_file.as_posix()}")
-    return pd.read_csv(data_file)
-
-
-def make_lag_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create lag features used for training.
-
-    Expected base column: item_cnt_month
-    """
-    if "item_cnt_month" not in df.columns:
-        return df
-
-    ordered = df.sort_values(["shop_id", "item_id", "date_block_num"]).copy()
-    grouped = ordered.groupby(["shop_id", "item_id"])["item_cnt_month"]
-
-    ordered["lag_1"] = grouped.shift(1)
-    ordered["lag_2"] = grouped.shift(2)
-    ordered["lag_3"] = grouped.shift(3)
-    ordered["lag_mean_1_2"] = ordered[["lag_1", "lag_2"]].mean(axis=1)
-
-    return ordered.dropna().reset_index(drop=True)
-
-
-def split_time_last_block(
-    df: pd.DataFrame, cfg: SplitConfig
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Split train/validation by date_block_num using last block as validation."""
-    df_train = df[df["date_block_num"] < cfg.val_last_block].copy()
-    df_val = df[df["date_block_num"] == cfg.val_last_block].copy()
-    return df_train, df_val
-
-
-def build_xy(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
-    """Build features matrix X and target y."""
-    y_target = df["item_cnt_month"]
-    x_features = df.drop(columns=["item_cnt_month"], errors="ignore")
-    return x_features, y_target
-
-
-def save_json(payload: dict, out_file: Path) -> None:
-    """Save dictionary as JSON."""
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    out_file.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-
-
-def train_and_score(df: pd.DataFrame, logger) -> Tuple[Ridge, float, int]:
-    """
-    Train model and compute RMSE using last month as validation.
-
-    Returns:
-      model, rmse, last_block
-    """
-    df_lags = make_lag_features(df)
-    logger.info("Datos después de lags (dropna): %s filas", f"{len(df_lags):,}")
-
-    last_block = int(df_lags["date_block_num"].max())
-    cfg = SplitConfig(val_last_block=last_block)
-
-    df_train, df_val = split_time_last_block(df_lags, cfg)
-    logger.info(
-        "Train: %s | Val: %s | last_block=%s",
-        f"{len(df_train):,}",
-        f"{len(df_val):,}",
-        last_block,
-    )
-
-    x_train, y_train = build_xy(df_train)
-    x_val, y_val = build_xy(df_val)
-
-    model = Ridge(alpha=1.0, random_state=42)
-    model.fit(x_train, y_train)
-
-    preds_val = model.predict(x_val)
-    rmse = float(root_mean_squared_error(y_val, preds_val))
-    return model, rmse, last_block
-
-
-def main(data_path: str | None, out_dir: str) -> None:
-    """Run the full training pipeline."""
+def main(
+    input_path: str | None = None,
+    output_path: str | None = None,
+    n_estimators: int = 200,
+    max_depth: int | None = 6,
+) -> None:
+    """Run training end-to-end."""
     start_time = time.time()
     logger = setup_logger("train")
 
-    data_file, out_root = resolve_paths(data_path, out_dir)
+    data_file = Path(input_path) if input_path else DEFAULT_DATA_PATH
+    model_file = Path(output_path) if output_path else (DEFAULT_MODEL_DIR / MODEL_FILENAME)
+    model_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if not data_path:
-        logger.info("No se pasó --data. Usando: %s", data_file.as_posix())
+    if not data_file.exists():
+        raise FileNotFoundError(f"No encontré data en: {data_file.as_posix()}")
 
-    df = load_data(data_file)
-    logger.info("Datos cargados: %s filas, %s columnas", f"{len(df):,}", df.shape[1])
+    logger.info("Iniciando entrenamiento")
+    logger.info("Usando dataset: %s", data_file.as_posix())
+    logger.info("Hiperparámetros: n_estimators=%s, max_depth=%s", n_estimators, max_depth)
 
-    model, rmse, last_block = train_and_score(df, logger)
-    logger.info("RMSE validación (último mes): %.6f", rmse)
+    df = pd.read_csv(data_file)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_path = out_root / "models" / f"ridge_{timestamp}.joblib"
-    metrics_path = out_root / "metrics" / f"train_metrics_{timestamp}.json"
+    if not {"lag_1", "lag_2", "lag_3", "lag_mean_1_2"}.issubset(df.columns):
+        logger.info("No encontré features lag en el dataset. Las voy a construir.")
+        df = make_lag_features(df)
 
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, model_path)
-    logger.info("Modelo guardado en: %s", model_path.as_posix())
+    if "item_cnt_month" not in df.columns:
+        raise ValueError("El dataset no contiene la columna objetivo 'item_cnt_month'.")
 
-    save_json({"rmse_val_last_block": rmse, "val_last_block": last_block}, metrics_path)
-    logger.info("Métricas guardadas en: %s", metrics_path.as_posix())
+    X = _build_features(df)
+    y = df["item_cnt_month"]
+
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    model = RandomForestRegressor(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        random_state=42,
+        n_jobs=-1,
+    )
+
+    logger.info("Entrenando modelo...")
+    model.fit(X_train, y_train)
+
+    preds = model.predict(X_val)
+    mse = mean_squared_error(y_val, preds)
+    rmse = mse ** 0.5
+    logger.info("RMSE validación: %.4f", rmse)
+
+    bundle = {
+        "model": model,
+        "features": list(X.columns),
+        "rmse_val": rmse,
+        "n_estimators": n_estimators,
+        "max_depth": max_depth,
+    }
+
+    joblib.dump(bundle, model_file)
+    logger.info("Modelo guardado en: %s", model_file.as_posix())
 
     duration = time.time() - start_time
-    logger.info("Tiempo de ejecución: %.2f segundos", duration)
+    logger.info("Entrenamiento finalizado en %.2f segundos", duration)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default=None, help="Ruta a monthly_clean.csv")
     parser.add_argument(
-        "--out_dir", default=str(DEFAULT_OUT_DIR), help="Carpeta raíz de artifacts"
+        "--input-path",
+        default=None,
+        help="Ruta al dataset de entrenamiento",
     )
+    parser.add_argument(
+        "--output-path",
+        default=None,
+        help="Ruta donde guardar el modelo .joblib",
+    )
+    parser.add_argument(
+        "--n-estimators",
+        type=int,
+        default=200,
+        help="Número de árboles del Random Forest",
+    )
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=6,
+        help="Profundidad máxima de los árboles",
+    )
+
     args = parser.parse_args()
 
-    main(args.data, args.out_dir)
+    main(
+        input_path=args.input_path,
+        output_path=args.output_path,
+        n_estimators=args.n_estimators,
+        max_depth=args.max_depth,
+    )

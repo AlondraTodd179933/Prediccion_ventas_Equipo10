@@ -1,0 +1,6 @@
+2026-04-07 00:44:22,387 - train - INFO - Logger configurado correctamente. Log file: artifacts\logs\train_20260407_004422.log
+2026-04-07 00:44:22,390 - train - INFO - Iniciando entrenamiento
+2026-04-07 00:44:22,391 - train - INFO - Usando dataset: artifacts/data/monthly_clean.csv
+2026-04-07 00:44:22,392 - train - INFO - Hiperparámetros: n_estimators=200, max_depth=6
+2026-04-07 00:44:24,754 - train - INFO - No encontré features lag en el dataset. Las voy a construir.
+2026-04-07 00:44:27,952 - train - INFO - Entrenando modelo...

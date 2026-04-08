@@ -1,0 +1,5 @@
+2026-04-07 15:04:13,426 - inference - INFO - Logger configurado correctamente. Log file: artifacts\logs\inference_20260407_150413.log
+2026-04-07 15:04:13,428 - inference - INFO - Usando data: artifacts/data/monthly_clean.csv
+2026-04-07 15:04:13,428 - inference - INFO - Usando modelo: artifacts/models/model.joblib
+2026-04-07 15:04:14,141 - inference - INFO - No encontré features lag en el dataset. Las voy a construir.
+2026-04-07 15:04:28,006 - inference - INFO - Predicciones guardadas en: artifacts/predictions/predictions.csv

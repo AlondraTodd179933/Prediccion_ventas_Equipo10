@@ -1,8 +1,9 @@
 """
 Inference script.
 
-Loads the trained model and the monthly dataset, ensures feature columns match
-those used during training (including lag features), and writes predictions to CSV.
+Loads the trained model and the monthly dataset, ensures feature
+columns match those used during training (including lag features),
+and writes predictions to CSV.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from algorithms.utils.logging_config import setup_logger
 
 DEFAULT_DATA_PATH = Path("artifacts/data/monthly_clean.csv")
 DEFAULT_MODEL_DIR = Path("artifacts/models")
-DEFAULT_OUT_DIR = Path("artifacts/predictions")
+DEFAULT_OUTPUT_DIR = Path("artifacts/predictions")
 PREDICTIONS_FILENAME = "predictions.csv"
 
 
@@ -54,10 +55,10 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     return df.drop(columns=drop_cols, errors="ignore")
 
 
-def _save_predictions(df: pd.DataFrame, preds, out_dir: Path, logger) -> Path:
+def _save_predictions(df: pd.DataFrame, preds, output_dir: Path, logger) -> Path:
     """Write predictions CSV to output directory."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pred_file = out_dir / PREDICTIONS_FILENAME
+    output_dir.mkdir(parents=True, exist_ok=True)
+    pred_file = output_dir / PREDICTIONS_FILENAME
 
     out_df = df.copy()
     out_df["prediction"] = preds
@@ -67,15 +68,19 @@ def _save_predictions(df: pd.DataFrame, preds, out_dir: Path, logger) -> Path:
     return pred_file
 
 
-def main(data_path: str | None, model_path: str | None, out_dir: str) -> None:
+def main(
+    input_path: str | None = None,
+    model_path: str | None = None,
+    output_path: str | None = None,
+) -> None:
     """Run inference end-to-end."""
     logger = setup_logger("inference")
 
-    data_file = Path(data_path) if data_path else DEFAULT_DATA_PATH
+    data_file = Path(input_path) if input_path else DEFAULT_DATA_PATH
     model_file = (
         Path(model_path) if model_path else _latest_file(DEFAULT_MODEL_DIR, "*.joblib")
     )
-    out_path = Path(out_dir) if out_dir else DEFAULT_OUT_DIR
+    output_dir = Path(output_path) if output_path else DEFAULT_OUTPUT_DIR
 
     if model_file is None or not model_file.exists():
         raise FileNotFoundError(
@@ -91,23 +96,34 @@ def main(data_path: str | None, model_path: str | None, out_dir: str) -> None:
     df = pd.read_csv(data_file)
 
     if not {"lag_1", "lag_2", "lag_3", "lag_mean_1_2"}.issubset(df.columns):
-        logger.info("No encontré features lag en el dataset. Las voy a construir...")
+        logger.info("No encontré features lag en el dataset. Las voy a construir.")
         df = make_lag_features(df)
 
     model = _load_model(model_file)
-    x_features = _build_features(df)
+    X_features = _build_features(df)
 
-    preds = model.predict(x_features)
-    _save_predictions(df, preds, out_path, logger)
+    preds = model.predict(X_features)
+    _save_predictions(df, preds, output_dir, logger)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default=None, help="Ruta a monthly_clean.csv")
-    parser.add_argument("--model", default=None, help="Ruta al modelo .joblib")
     parser.add_argument(
-        "--out_dir", default=str(DEFAULT_OUT_DIR), help="Carpeta de salida"
+        "--input-path",
+        default=None,
+        help="Ruta al dataset para inferencia",
     )
+    parser.add_argument(
+        "--model-path",
+        default=None,
+        help="Ruta al modelo .joblib",
+    )
+    parser.add_argument(
+        "--output-path",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Carpeta de salida para predicciones",
+    )
+
     args = parser.parse_args()
 
-    main(args.data, args.model, args.out_dir)
+    main(args.input_path, args.model_path, args.output_path)
