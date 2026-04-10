@@ -1,0 +1,9 @@
+2026-04-07 00:28:03,026 - prep - INFO - Logger configurado correctamente. Log file: artifacts\logs\prep_20260407_002803.log
+2026-04-07 00:28:03,027 - prep - INFO - Iniciando preparación de datos
+2026-04-07 00:28:03,027 - prep - INFO - Leyendo datos desde: data
+2026-04-07 00:28:03,028 - prep - INFO - Cargando datasets originales
+2026-04-07 00:28:04,389 - prep - INFO - Ventas cargadas: 2,935,849 filas
+2026-04-07 00:28:04,675 - prep - INFO - Ventas después de limpieza: 2,928,492 filas
+2026-04-07 00:28:06,390 - prep - INFO - Datos agregados a nivel mensual
+2026-04-07 00:28:14,054 - prep - INFO - Dataset guardado en: artifacts/data/monthly_clean.csv
+2026-04-07 00:28:14,055 - prep - INFO - Preparación finalizada en 11.03 segundos
