@@ -153,7 +153,39 @@ def main(data_path: str | None, out_dir: str) -> None:
 
     duration = time.time() - start_time
     logger.info("Tiempo de ejecución: %.2f segundos", duration)
+def _resolve_sagemaker_train_file(train_data_path: str) -> Path:
+    path = Path(train_data_path)
 
+    if path.is_file():
+        return path
+
+    if path.is_dir():
+        csv_files = sorted(path.glob("*.csv"))
+        if not csv_files:
+            raise FileNotFoundError(f"No CSV en {path}")
+        return csv_files[0]
+
+    raise FileNotFoundError(train_data_path)
+
+
+def train_and_evaluate(
+    train_data_path: str,
+    model_dir: str,
+    hyperparams: dict | None = None,
+) -> None:
+
+    logger = setup_logger("train_sagemaker")
+
+    data_file = _resolve_sagemaker_train_file(train_data_path)
+    df = load_data(data_file)
+
+    model, rmse, last_block = train_and_score(df, logger)
+
+    model_path = Path(model_dir) / "model.joblib"
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+
+    joblib.dump(model, model_path)
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
