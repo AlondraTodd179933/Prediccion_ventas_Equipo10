@@ -165,6 +165,8 @@ Docstrings y tipado
 10/10 (IMAGEN DE EVIDENCIA EN REPOSITORIO en CARPETA LLAMADA SCREEN)
 
 
+--------------------------------------------------
+
 ##Arquitectura del pipeline
 El pipeline fue modularizado en tres etapas independientes:
 preprocessing
@@ -190,5 +192,77 @@ El repositorio incluye screensshots de:
 -Inference ejecutado en EC2
 - Tests ejecutados
 UBICACIÓN: screens/
+
+--------------------------------------------------
+
+## SageMaker BYOC
+lujo ejecutado en AWS
+1. Datos
+
+El dataset procesado monthly_clean.csv se subió a Amazon S3 para ser consumido por SageMaker durante el entrenamiento.
+
+2. Imagen Docker
+
+La imagen del contenedor se construyó y se subió a Amazon ECR con el repositorio:
+
+ml-predsales-byoc
+3. Training Job
+
+Se ejecutó un training job en SageMaker usando:
+
+instance_type = ml.m5.large
+imagen BYOC desde ECR
+datos de entrenamiento desde S3
+
+Resultado: training job completado exitosamente.
+
+4. Endpoint en tiempo real
+
+Se desplegó un endpoint en SageMaker con la misma imagen para servir inferencias en tiempo real.
+
+5. Inferencia
+
+Se probó correctamente una inferencia real-time enviando un payload con las variables esperadas por el modelo.
+
+Ejemplo de respuesta obtenida:
+
+{'predictions': [-0.24812874781783867]}
+Notebook de ejecución
+
+La ejecución completa de SageMaker para esta tarea se encuentra documentada en:
+
+notebooks/sagemaker_byoc_recovery.ipynb
+
+
+Se implementó un contenedor compatible con SageMaker para training y serving sobre el directorio `algorithms/training`.
+
+- Branch de desarrollo: `feature/sagemaker-training-byoc`
+- Refactor de `algorithms/training`
+- Contenedor BYOC para training
+- Serving endpoint para inferencias en tiempo real
+- Imagen Docker publicada en Amazon ECR
+- Endpoint desplegado y probado en tiempo real
+
+### Archivos principales
+- `algorithms/training/Dockerfile.train`
+- `algorithms/training/train`
+- `algorithms/training/serve`
+- `algorithms/training/predictor.py`
+- `algorithms/training/requirements.txt`
+- `algorithms/training/train.py`
+- `notebooks/sagemaker_byoc_recovery.ipynb`
+
+### Evidencia
+- Imagen almacenada en Amazon ECR
+![ECR](ecr.png)
+- Training job completado en SageMaker
+![Training](training.png)
+- Inferencia en tiempo real exitosa
+-Endpoint desplegado
+![Endpoint](endpoint.png)
+-Inferencia en tiempo real
+![Inference](inference.png)
+
+--------------------------------------------------
 
 
