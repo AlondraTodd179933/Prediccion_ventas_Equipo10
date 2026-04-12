@@ -1,5 +1,4 @@
 # Prediccion_ventas_Equipo10
-Alondra García y Ana Paredes
 
 
 ## Objetivo
@@ -163,6 +162,33 @@ Docstrings y tipado
 
 
 ##Resultado de Pylint
-10/10 (IMAGEN DE EVIDENCIA EN REPOSITORIO)
+10/10 (IMAGEN DE EVIDENCIA EN REPOSITORIO en CARPETA LLAMADA SCREEN)
+
+
+##Arquitectura del pipeline
+El pipeline fue modularizado en tres etapas independientes:
+preprocessing
+training
+inference
+Cada etapa se ejecuta mediante CLI
+
+#Dockerización del pipeline
+Se creó una imagen Docker por cada etapa:
+ml-preprocessing
+ml-training
+ml-inference
+
+#Ejecución en EC2
+El pipeline fue ejecutado en una instancia EC2 de AWS.
+Ejecución en EC2
+En TESTING se agregaron pruebas unitarias con pytest.
+
+#EVIDENCIA
+El repositorio incluye screensshots de:
+-Docker images creadas
+-Training ejecutado en EC2
+-Inference ejecutado en EC2
+- Tests ejecutados
+UBICACIÓN: screens/
 
 
