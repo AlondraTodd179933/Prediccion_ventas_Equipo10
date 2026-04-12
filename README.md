@@ -227,5 +227,11 @@ Se implementó un contenedor compatible con SageMaker para training y serving so
 
 ### Evidencia
 - Imagen almacenada en Amazon ECR
+![ECR](ecr.png)
 - Training job completado en SageMaker
+![Training](training.png)
 - Inferencia en tiempo real exitosa
+-Endpoint desplegado
+![Endpoint](endpoint.png)
+-Inferencia en tiempo real
+![Inference](inference.png)
